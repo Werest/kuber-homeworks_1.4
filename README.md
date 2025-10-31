@@ -140,8 +140,6 @@ spec:
 
  <img width="1146" height="544" alt="image" src="https://github.com/user-attachments/assets/ba84f1e2-d1df-4b83-9ed4-d4cb6feae449" />
 
-
-
 ### **Что сдать на проверку**
 - Манифесты:
   - `deployment-multi-container.yaml`
@@ -157,20 +155,128 @@ spec:
 1. **Развернуть два Deployment**:
    - `frontend` (образ `nginx`).
    - `backend` (образ `wbitt/network-multitool`).
+**frontend**
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-frontend-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-frontend-app
+  template:
+    metadata:
+      labels:
+        app: nginx-frontend-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+          name: nginx-port
+```
+
+**backend**
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multitool-backend-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multitool-backend-app
+  template:
+    metadata:
+      labels:
+        app: multitool-backend-app
+    spec:
+      containers:
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080" 
+        ports:
+        - containerPort: 8080
+```
+
 2. **Создать Service** для каждого приложения.
-3. **Включить Ingress-контроллер**:
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service-frontend-svc
+spec:
+  ports:
+  - name: nginx
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx-frontend-app
+  type: ClusterIP
+```
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: multitool-backend-svc
+spec:
+  ports:
+  - name: multitool
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: multitool-backend-app
+  type: ClusterIP
+```
+4. **Включить Ingress-контроллер**:
 ```bash
  microk8s enable ingress
    ```
 4. **Создать Ingress**, который:
    - Открывает `frontend` по пути `/`.
    - Открывает `backend` по пути `/api`.
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-multitool-ingress
+  annotations:  # ВАЖНО: Эта аннотация нужна для rewrite правил
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+ - http:
+    paths:
+    - path: /
+    pathType: Prefix
+    backend:
+        service:
+            name: nginx-service-frontend-svc # УКАЖИТЕ: Имя frontend Service
+            port:
+                number: 80
+    - path: /api # КЛЮЧЕВОЙ ПУТЬ: API endpoint
+    pathType: Prefix
+    backend:
+        service:
+            name: multitool-backend-svc # УКАЖИТЕ: Имя backend Service
+            port:
+                number: 80
+```
 5. **Проверить доступность**:
 ```bash
  curl <host>/
  curl <host>/api
    ```
  или через браузер.
+
+
 
 ### **Что сдать на проверку**
 - Манифесты:
@@ -217,28 +323,34 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: # ЗАДАНИЕ: Придумайте имя, допустим example-ingress
-  annotations:  # ВАЖНО: Эта аннотация нужна для rewrite правил
+  name: nginx-multitool-ingress
+  annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
- - http:
+  - http:
       paths:
- - path: /
+      - path: /
         pathType: Prefix
         backend:
           service:
-            name: # УКАЖИТЕ: Имя frontend Service
+            name: nginx-service-frontend-svc
             port:
               number: 80
- - path: /api # КЛЮЧЕВОЙ ПУТЬ: API endpoint
+      - path: /api
         pathType: Prefix
         backend:
           service:
-            name: # УКАЖИТЕ: Имя backend Service
+            name: multitool-backend-svc
             port:
               number: 80
 ```
+
+<img width="1417" height="447" alt="image" src="https://github.com/user-attachments/assets/766d1dd7-15a9-44be-9b49-46e22233c3af" />
+
+<img width="1562" height="558" alt="image" src="https://github.com/user-attachments/assets/2596768e-817c-483d-8b18-72705ce9435a" />
+
+
 ---
 
 ## **Правила приёма работы**
