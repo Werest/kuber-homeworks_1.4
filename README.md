@@ -52,21 +52,95 @@
    - `nginx` (порт `80`).
    - `multitool` (порт `8080`).
    - Количество реплик: `3`.
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-multitool-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-multitool-app
+  template:
+    metadata:
+      labels:
+        app: nginx-multitool-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+      - name: multitool
+        image: wbitt/network-multitool
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
+```
+
 2. **Создать Service типа ClusterIP**, который:
    - Открывает `nginx` на порту `9001`.
    - Открывает `multitool` на порту `9002`.
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-multitool-svc
+spec:
+  selector:
+    app: nginx-multitool-app
+  ports:
+    - name: nginx
+      port: 9001
+      targetPort: 80
+    - name: multitool
+      port: 9002
+      targetPort: 8080
+  type: ClusterIP
+```
+
+<img width="1174" height="205" alt="image" src="https://github.com/user-attachments/assets/75c3215c-6521-41f8-b415-5b529834da9a" />
+
 3. **Проверить доступность** изнутри кластера:
 ```bash
  kubectl run test-pod --image=wbitt/network-multitool --rm -it -- sh
  curl <service-name>:9001 # Проверить nginx
  curl <service-name>:9002 # Проверить multitool
 ```
+<img width="1639" height="547" alt="image" src="https://github.com/user-attachments/assets/77dd89e4-fb58-426c-a12e-86108198f7d6" />
+
+
 4. **Создать Service типа NodePort** для доступа к `nginx` снаружи.
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+spec:
+  selector:
+    app: nginx-multitool-app
+  ports:
+    - name: nginx
+      protocol: TCP    
+      port: 80
+      targetPort: 80
+      nodePort: 31500
+  type: NodePort
+```
+<img width="1173" height="176" alt="image" src="https://github.com/user-attachments/assets/b811efc9-648c-4ab8-8e65-6b79487db0b4" />
+
 5. **Проверить доступ** с локального компьютера:
 ```bash
  curl <node-ip>:<node-port>
    ```
  или через браузер.
+
+ <img width="1146" height="544" alt="image" src="https://github.com/user-attachments/assets/ba84f1e2-d1df-4b83-9ed4-d4cb6feae449" />
+
+
 
 ### **Что сдать на проверку**
 - Манифесты:
@@ -74,7 +148,6 @@
   - `service-clusterip.yaml`
   - `service-nodeport.yaml`
 - Скриншоты проверки доступа (`curl` или браузер).
-
 ---
 ## **Задание 2: Настройка Ingress**
 ### **Задача**
